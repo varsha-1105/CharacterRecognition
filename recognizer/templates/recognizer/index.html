@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Character Recognition</title>
+  <style>
+    canvas {
+      border: 2px solid #000;
+      touch-action: none;
+    }
+    .btns {
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Draw a character below</h2>
+  <canvas id="canvas" width="280" height="280"></canvas>
+  <div class="btns">
+    <button onclick="clearCanvas()">Clear</button>
+    <button onclick="submitCanvas()">Submit</button>
+  </div>
+  <h3 id="prediction"></h3>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let painting = false;
+
+    canvas.addEventListener('mousedown', start);
+    canvas.addEventListener('mouseup', stop);
+    canvas.addEventListener('mousemove', draw);
+
+    canvas.addEventListener('touchstart', start);
+    canvas.addEventListener('touchend', stop);
+    canvas.addEventListener('touchmove', drawTouch);
+
+    function start(e) {
+      painting = true;
+      draw(e);
+    }
+
+    function stop() {
+      painting = false;
+      ctx.beginPath();
+    }
+
+    function draw(e) {
+      if (!painting) return;
+      ctx.lineWidth = 15;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = '#000';
+
+      const rect = canvas.getBoundingClientRect();
+      ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+    }
+
+    function drawTouch(e) {
+      e.preventDefault();
+      if (e.touches.length === 1) {
+        let touch = e.touches[0];
+        let mouseEvent = new MouseEvent("mousemove", {
+          clientX: touch.clientX,
+          clientY: touch.clientY
+        });
+        draw(mouseEvent);
+      }
+    }
+
+    function clearCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function submitCanvas() {
+      const dataURL = canvas.toDataURL('image/png');
+      fetch('/predict/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({ image: dataURL })
+      })
+      .then(response => response.json())
+      .then(data => {
+        document.getElementById('prediction').innerText = `Prediction: ${data.prediction}`;
+      });
+    }
+
+    function getCookie(name) {
+      let cookieValue = null;
+      if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+          const cookie = cookies[i].trim();
+          if (cookie.substring(0, name.length + 1) === (name + '=')) {
+            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+            break;
+          }
+        }
+      }
+      return cookieValue;
+    }
+  </script>
+</body>
+</html>
